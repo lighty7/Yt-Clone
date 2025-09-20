@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const { pool } = require('../config/database');
+const User = require('../models/User');
 
 const auth = async (req, res, next) => {
   try {
@@ -12,16 +12,16 @@ const auth = async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
     // Get user from database
-    const [users] = await pool.execute(
-      'SELECT id, name, email FROM users WHERE id = ?',
-      [decoded.userId]
-    );
+    const user = await User.findOne({
+      where: { id: decoded.userId },
+      attributes: ['id', 'name', 'email', 'isVerified']
+    });
 
-    if (users.length === 0) {
+    if (!user) {
       return res.status(401).json({ message: 'Token is not valid' });
     }
 
-    req.user = users[0];
+    req.user = user;
     next();
   } catch (error) {
     res.status(401).json({ message: 'Token is not valid' });

@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
+import { getApiUrl, isDevelopment } from '../config/environment'
 
 const AuthContext = createContext()
 
@@ -10,7 +11,7 @@ export const useAuth = () => {
   return context
 }
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://yt-clone-il3g.onrender.com'
+const API_URL = getApiUrl()
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
@@ -83,9 +84,8 @@ export const AuthProvider = ({ children }) => {
       const data = await response.json()
 
       if (response.ok) {
-        localStorage.setItem('token', data.token)
-        setUser({ ...data.user, token: data.token })
-        return { success: true }
+        // Don't set user or token on signup - user needs to verify email first
+        return { success: true, message: data.message }
       } else {
         return { success: false, message: data.message }
       }
