@@ -24,13 +24,14 @@ const getAllowedOrigins = () => {
 
 // Check if origin is allowed in development
 const isDevelopmentOrigin = (origin) => {
-  // Allow all localhost origins in development
   if (process.env.NODE_ENV !== 'production') {
-    return origin && (
-      origin.startsWith('http://localhost:') ||
-      origin.startsWith('https://localhost:') ||
+    if (!origin) return false;
+    
+    return (
+      origin.startsWith('http://localhost') ||
+      origin.startsWith('https://localhost') ||
       origin.includes('127.0.0.1') ||
-      origin.includes('192.168.')
+      /^https?:\/\/192\.168\.30\.\d+/.test(origin)
     );
   }
   return false;
