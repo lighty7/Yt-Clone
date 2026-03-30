@@ -169,9 +169,11 @@ class AuthController {
 
     } catch (error) {
       console.error('Signup error:', error);
+      console.error('Error details:', error.message, error.stack);
       res.status(500).json({
         success: false,
-        message: 'An error occurred during signup'
+        message: 'An error occurred during signup',
+        error: error.message
       });
     }
   }
