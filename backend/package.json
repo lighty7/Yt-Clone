@@ -1,10 +1,10 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "main": "src/server.js",
+  "main": "index.js",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "nodemon src/server.js",
+    "dev": "cross-env NODE_ENV=development nodemon src/server.js",
     "build": "npm run prisma:generate",
     "postinstall": "npm run prisma:generate",
     "prisma:generate": "prisma generate",
@@ -13,7 +13,7 @@
     "prisma:studio": "prisma studio",
     "prisma:reset": "prisma migrate reset",
     "lint": "echo \"No linting configured\" && exit 0",
-    "test": "echo \"Error: no test specified\" && exit 0",
+    "test": "jest",
     "health": "node -e \"require('http').get('http://localhost:3000/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })\""
   },
   "keywords": [],
@@ -29,13 +29,21 @@
     "express": "^5.1.0",
     "express-rate-limit": "^7.4.1",
     "helmet": "^8.0.0",
+    "joi": "^18.0.1",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.2",
     "nodemailer": "^7.0.9",
     "pg": "^8.16.3"
   },
   "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "cross-env": "^10.1.0",
+    "jest": "^30.2.0",
     "nodemon": "^3.1.7",
-    "prisma": "^6.16.2"
-  }
+    "prisma": "^6.16.2",
+    "supertest": "^7.1.4"
+  },
+  "trustedDependencies": [
+    "unrs-resolver"
+  ]
 }

@@ -3,8 +3,8 @@ services:
     name: yt-clone-backend
     env: node
     plan: free
-    buildCommand: npm install
-    startCommand: npm start
+    buildCommand: npm install && npm run build
+    startCommand: node index.js
     envVars:
       - key: NODE_ENV
         value: production

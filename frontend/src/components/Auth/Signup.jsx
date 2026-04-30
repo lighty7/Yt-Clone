@@ -1,12 +1,10 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '../../contexts/AuthContext'
 
 const Signup = () => {
 	const [formData, setFormData] = useState({ name: '', email: '', password: '', confirmPassword: '' })
 	const [error, setError] = useState('')
 	const [loading, setLoading] = useState(false)
-	const { signup } = useAuth()
 	const navigate = useNavigate()
 
 	const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value })
@@ -35,7 +33,7 @@ const Signup = () => {
 			} else {
 				setError(data.message || 'Failed to create account')
 			}
-		} catch (err) {
+		} catch {
 			setError('Something went wrong. Please try again.')
 		} finally {
 			setLoading(false)

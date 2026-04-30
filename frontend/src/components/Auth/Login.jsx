@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { useAuth } from '../../contexts/AuthContext'
+import { useAuth } from '../../hooks/useAuth'
 
 const Login = () => {
 	const [formData, setFormData] = useState({ email: '', password: '' })
@@ -27,7 +27,7 @@ const Login = () => {
 			} else {
 				setError(result.message || 'Invalid email or password')
 			}
-		} catch (err) {
+		} catch {
 			setError('Something went wrong. Please try again.')
 		} finally {
 			setLoading(false)

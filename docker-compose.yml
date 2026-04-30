@@ -1,83 +1,103 @@
-version: '3.8'
+version: "3.8"
 
 services:
-  # Database service
-  database:
-    image: postgres:15-alpine
+  postgres:
+    image: postgres:16-alpine
     container_name: yt-clone-db
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ytclone
-      POSTGRES_USER: ytclone
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-securepassword}
+      POSTGRES_USER: yash
+      POSTGRES_PASSWORD: yash123
+      POSTGRES_DB: yt_clone
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./backend/prisma/init.sql:/docker-entrypoint-initdb.d/init.sql
-    ports:
-      - "5432:5432"
+    networks:
+      - yt-clone-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ytclone -d ytclone"]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U yash -d yt_clone"]
+      interval: 5s
       timeout: 5s
       retries: 5
 
-  # Backend service
   backend:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
     container_name: yt-clone-backend
     restart: unless-stopped
-    environment:
-      NODE_ENV: production
-      DATABASE_URL: postgresql://ytclone:${DB_PASSWORD:-securepassword}@database:5432/ytclone
-      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key}
-      JWT_EXPIRES_IN: 7d
-      PORT: 3000
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./uploads:/app/uploads
     depends_on:
-      database:
+      postgres:
         condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://yash:yash123@postgres:5432/yt_clone
+      - NODE_ENV=production
+      - PORT=3000
+      - FRONTEND_URL=https://qugeni-test.tail463032.ts.net
+      - PRODUCTION_ORIGINS=https://qugeni-test.tail463032.ts.net
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=7d
+      - SMTP_HOST=smtp.gmail.com
+      - SMTP_PORT=587
+      - SMTP_SECURE=false
+      - SMTP_USER=yashwanth.hp.dev@gmail.com
+      - SMTP_PASS=${SMTP_PASS}
+      - VERIFICATION_TOKEN_EXPIRES_IN=24h
+    volumes:
+      - uploads_data:/app/uploads
+    networks:
+      - yt-clone-network
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
-  # Frontend service (if serving static files from backend)
   frontend:
     build:
-      context: .
-      dockerfile: Dockerfile.frontend
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=https://qugeni-test.tail463032.ts.net
     container_name: yt-clone-frontend
     restart: unless-stopped
+    networks:
+      - yt-clone-network
+
+  monitor:
+    build:
+      context: ./monitor
+      dockerfile: Dockerfile
+    container_name: yt-clone-monitor
+    restart: unless-stopped
     environment:
-      NODE_ENV: production
-      VITE_API_URL: ${API_URL:-http://localhost:3000}
+      - DEPLOY_TOKEN=${DEPLOY_TOKEN}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - .:/app/project:ro
+    networks:
+      - yt-clone-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: yt-clone-nginx
+    restart: unless-stopped
     ports:
       - "80:80"
     depends_on:
       - backend
-
-  # Redis for caching (optional)
-  redis:
-    image: redis:7-alpine
-    container_name: yt-clone-redis
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
+      - frontend
+      - monitor
     volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    networks:
+      - yt-clone-network
 
 volumes:
   postgres_data:
-  redis_data:
+  uploads_data:
+
+networks:
+  yt-clone-network:
+    driver: bridge

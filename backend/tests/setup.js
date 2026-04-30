@@ -1,18 +1,28 @@
 // Test setup file
-const { sequelize } = require('../config/database');
+const { PrismaClient } = require('@prisma/client');
 
 // Set test environment
 process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET = 'test-jwt-secret-key-for-testing-only';
 process.env.JWT_EXPIRES_IN = '1h';
+process.env.DATABASE_URL = process.env.DATABASE_URL || 'postgresql://test:test@localhost:5432/test_db';
 
 // Global test timeout
-jest.setTimeout(10000);
+jest.setTimeout(30000);
+
+// Create a single shared Prisma client for all tests
+const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: process.env.DATABASE_URL
+    }
+  }
+});
 
 // Setup and teardown
 beforeAll(async () => {
   try {
-    await sequelize.authenticate();
+    await prisma.$connect();
     console.log('✅ Test database connected');
   } catch (error) {
     console.error('❌ Test database connection failed:', error);
@@ -21,9 +31,18 @@ beforeAll(async () => {
 
 afterAll(async () => {
   try {
-    await sequelize.close();
-    console.log('✅ Test database connection closed');
+    await prisma.$disconnect();
+    console.log('✅ Test database disconnected');
   } catch (error) {
-    console.error('❌ Error closing test database:', error);
+    console.error('❌ Error disconnecting from test database:', error);
   }
 });
+
+// Clean up test data after each test
+afterEach(async () => {
+  // Skip cleanup for basic tests to avoid prepared statement conflicts
+  // Database tests can be added later with proper setup
+});
+
+// Export the shared Prisma client
+module.exports = { prisma };

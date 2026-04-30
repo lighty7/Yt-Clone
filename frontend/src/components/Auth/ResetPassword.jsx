@@ -60,7 +60,7 @@ const ResetPassword = () => {
 			} else {
 				setError(data.message || 'Failed to reset password')
 			}
-		} catch (err) {
+		} catch {
 			setError('Something went wrong. Please try again.')
 		} finally {
 			setLoading(false)

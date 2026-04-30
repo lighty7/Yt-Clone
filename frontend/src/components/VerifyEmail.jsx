@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { getApiUrl } from '../config/environment'
 
 const VerifyEmail = () => {
   const [searchParams] = useSearchParams()
-  const navigate = useNavigate()
   const [status, setStatus] = useState('verifying') // 'verifying', 'success', 'error'
   const [message, setMessage] = useState('')
   const [user, setUser] = useState(null)
@@ -32,7 +31,7 @@ const VerifyEmail = () => {
           setStatus('error')
           setMessage(data.message)
         }
-      } catch (error) {
+      } catch {
         setStatus('error')
         setMessage('Something went wrong. Please try again.')
       }
@@ -61,7 +60,7 @@ const VerifyEmail = () => {
       } else {
         setMessage(data.message || 'Failed to resend verification email')
       }
-    } catch (error) {
+    } catch {
       setMessage('Failed to resend verification email. Please try again.')
     }
   }

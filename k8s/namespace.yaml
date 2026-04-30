@@ -1,7 +1,0 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: yt-clone
-  labels:
-    name: yt-clone
-    app: youtube-clone

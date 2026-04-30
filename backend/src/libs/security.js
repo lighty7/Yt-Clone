@@ -1,5 +1,5 @@
 const rateLimit = require('express-rate-limit');
-const env = require('../../config/env');
+const env = require('../config/env');
 
 function applyRateLimit(app) {
   const limiter = rateLimit({
@@ -12,7 +12,21 @@ function applyRateLimit(app) {
 
 function buildCorsOrigin() {
   if (env.nodeEnv === 'production') {
-    return ['https://yt-clone-blond.vercel.app', env.frontendUrl].filter(Boolean);
+    // Allow multiple Vercel deployment patterns and custom frontend URL
+    const productionOrigins = [
+      'https://yt-clone-blond.vercel.app',
+      'https://yt-clone-git-main-lighty7s-projects.vercel.app',
+      'https://yt-clone-lighty7s-projects.vercel.app',
+      'https://yt-clone-*.vercel.app', // Wildcard for Vercel deployments
+      env.frontendUrl
+    ].filter(Boolean);
+    
+    // If frontendUrl is set, add it to allowed origins
+    if (env.frontendUrl && !productionOrigins.includes(env.frontendUrl)) {
+      productionOrigins.push(env.frontendUrl);
+    }
+    
+    return productionOrigins;
   }
   return [env.frontendUrl, 'http://localhost:3000','http://192.168.30.5:5174','http://192.168.30.5:5175'].filter(Boolean);
 }

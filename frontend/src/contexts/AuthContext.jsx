@@ -1,53 +1,97 @@
-import React, { createContext, useContext, useState, useEffect } from 'react'
-
-const AuthContext = createContext()
-
-export const useAuth = () => {
-  const context = useContext(AuthContext)
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider')
-  }
-  return context
-}
-
-const API_URL =
-  (import.meta.env.MODE === 'development')
-    ? (import.meta.env.VITE_API_URL || 'http://localhost:3000')
-    : (import.meta.env.VITE_API_URL || 'https://yt-clone-il3g.onrender.com')
+import React, { useState, useEffect } from 'react'
+import { API_URL } from '../config/api'
+import { AuthContext } from './AuthContext.js'
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [loadingMessage, setLoadingMessage] = useState('Initializing...')
 
   // Check if user is logged in on app start
   useEffect(() => {
     const token = localStorage.getItem('token')
-    if (token) {
-      // Validate token with backend
-      fetch(`${API_URL}/api/auth/me`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.user) {
-          setUser({ ...data.user, token })
-        } else {
-          localStorage.removeItem('token')
+    
+    // Add API health check first
+    const checkApiHealth = async () => {
+      try {
+        const healthResponse = await fetch(`${API_URL}/health`)
+        if (!healthResponse.ok) {
+          throw new Error(`API health check failed: ${healthResponse.status}`)
         }
-      })
-      .catch(() => {
-        localStorage.removeItem('token')
-      })
-      .finally(() => {
-        setLoading(false)
-      })
-    } else {
-      setLoading(false)
+        console.log('✅ API health check passed')
+      } catch (error) {
+        console.error('❌ API health check failed:', error.message)
+        if (import.meta.env.PROD) {
+          console.error('🔧 API URL being used:', API_URL)
+        }
+        // Don't throw here, just log the error and continue
+      }
     }
-  }, [])
+
+    const initializeAuth = async () => {
+      try {
+        setLoadingMessage('Checking API connection...')
+        await checkApiHealth()
+        
+        if (token) {
+          setLoadingMessage('Validating user session...')
+          // Validate token with backend
+          try {
+            const response = await fetch(`${API_URL}/api/auth/me`, {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+            })
+            
+            if (!response.ok) {
+              throw new Error(`Token validation failed: ${response.status}`)
+            }
+            
+            const data = await response.json()
+            if (data.user) {
+              setUser({ ...data.user, token })
+            } else {
+              localStorage.removeItem('token')
+            }
+          } catch (error) {
+            console.warn('Token validation failed:', error.message)
+            localStorage.removeItem('token')
+            // Log more details in production for debugging
+            if (import.meta.env.PROD) {
+              console.error('Auth error details:', {
+                error: error.message,
+                url: `${API_URL}/api/auth/me`,
+                timestamp: new Date().toISOString()
+              })
+            }
+          }
+        }
+        
+        setLoadingMessage('Loading complete')
+      } catch (error) {
+        console.error('Auth initialization failed:', error)
+        // Continue loading even if API is down
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    // Add timeout to prevent infinite loading
+    const timeoutId = setTimeout(() => {
+      console.warn('⚠️ Auth initialization timeout - continuing anyway')
+      setLoading(false)
+    }, 5000) // 5 second timeout for faster loading
+
+    initializeAuth().finally(() => {
+      clearTimeout(timeoutId)
+    })
+    
+    // Cleanup function
+    return () => {
+      clearTimeout(timeoutId)
+    }
+  }, []) // Empty dependency array is correct - we only want this to run once on mount
 
   const login = async (email, password) => {
     try {
@@ -68,7 +112,7 @@ export const AuthProvider = ({ children }) => {
       } else {
         return { success: false, message: data.message }
       }
-    } catch (error) {
+    } catch {
       return { success: false, message: 'Network error. Please try again.' }
     }
   }
@@ -92,7 +136,7 @@ export const AuthProvider = ({ children }) => {
       } else {
         return { success: false, message: data.message }
       }
-    } catch (error) {
+    } catch {
       return { success: false, message: 'Network error. Please try again.' }
     }
   }
@@ -107,7 +151,8 @@ export const AuthProvider = ({ children }) => {
     login,
     signup,
     logout,
-    loading
+    loading,
+    loadingMessage
   }
 
   return (

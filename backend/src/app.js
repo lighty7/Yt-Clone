@@ -3,16 +3,29 @@ const cors = require('cors');
 const helmet = require('helmet');
 const path = require('path');
 const routes = require('./routes');
-const notFound = require('./middleware/notFound');
-const error = require('./middleware/error');
-const { applyRateLimit, buildCorsOrigin } = require('./libs/security');
+const { errorHandler, notFoundHandler, initErrorHandling } = require('./middleware/error');
+const { applyRateLimit } = require('./libs/security');
 
 const app = express();
 
 // Security and limits
 app.use(helmet());
 applyRateLimit(app);
-app.use(cors({ origin: buildCorsOrigin(), credentials: true }));
+
+// Import CORS configuration
+const { corsMiddleware } = require('./config/cors.config');
+
+// Apply CORS middleware
+app.use(corsMiddleware);
+
+// Ensure CORS headers are always set, even on errors
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, Pragma, X-API-Key');
+  next();
+});
 
 // Parsers
 app.use(express.json({ limit: '10mb' }));
@@ -33,8 +46,11 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.use('/api', routes);
 
 // 404 and error handlers
-app.use(notFound);
-app.use(error);
+app.use(notFoundHandler);
+app.use(errorHandler);
+
+// Initialize error handling
+initErrorHandling();
 
 module.exports = app;
 
