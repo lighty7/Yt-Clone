@@ -13,7 +13,7 @@
     "prisma:studio": "prisma studio",
     "prisma:reset": "prisma migrate reset",
     "lint": "echo \"No linting configured\" && exit 0",
-        "test": "jest",
+    "test": "jest",
     "health": "node -e \"require('http').get('http://localhost:3000/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })\""
   },
   "keywords": [],
@@ -42,5 +42,8 @@
     "nodemon": "^3.1.7",
     "prisma": "^6.16.2",
     "supertest": "^7.1.4"
-  }
+  },
+  "trustedDependencies": [
+    "unrs-resolver"
+  ]
 }

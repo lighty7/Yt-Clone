@@ -1,0 +1,12 @@
+{
+  "name": "yt-clone-monitor",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node api.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "dockerode": "^4.0.2"
+  }
+}

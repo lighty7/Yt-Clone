@@ -1,0 +1,103 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: yt-clone-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: yash
+      POSTGRES_PASSWORD: yash123
+      POSTGRES_DB: yt_clone
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - yt-clone-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U yash -d yt_clone"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: yt-clone-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://yash:yash123@postgres:5432/yt_clone
+      - NODE_ENV=production
+      - PORT=3000
+      - FRONTEND_URL=https://qugeni-test.tail463032.ts.net
+      - PRODUCTION_ORIGINS=https://qugeni-test.tail463032.ts.net
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=7d
+      - SMTP_HOST=smtp.gmail.com
+      - SMTP_PORT=587
+      - SMTP_SECURE=false
+      - SMTP_USER=yashwanth.hp.dev@gmail.com
+      - SMTP_PASS=${SMTP_PASS}
+      - VERIFICATION_TOKEN_EXPIRES_IN=24h
+    volumes:
+      - uploads_data:/app/uploads
+    networks:
+      - yt-clone-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=https://qugeni-test.tail463032.ts.net
+    container_name: yt-clone-frontend
+    restart: unless-stopped
+    networks:
+      - yt-clone-network
+
+  monitor:
+    build:
+      context: ./monitor
+      dockerfile: Dockerfile
+    container_name: yt-clone-monitor
+    restart: unless-stopped
+    environment:
+      - DEPLOY_TOKEN=${DEPLOY_TOKEN}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - .:/app/project:ro
+    networks:
+      - yt-clone-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: yt-clone-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+      - frontend
+      - monitor
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    networks:
+      - yt-clone-network
+
+volumes:
+  postgres_data:
+  uploads_data:
+
+networks:
+  yt-clone-network:
+    driver: bridge

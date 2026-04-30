@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YT-Clone Monitor</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f0f0f; color: #e0e0e0; min-height: 100vh; }
+    .header { background: #1a1a2e; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #333; }
+    .header h1 { font-size: 1.3rem; color: #fff; }
+    .header .badge { background: #e94560; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; }
+    .actions { padding: 16px 24px; display: flex; gap: 12px; flex-wrap: wrap; }
+    .btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600; transition: all 0.2s; }
+    .btn-deploy { background: #4ecca3; color: #0f0f0f; }
+    .btn-deploy:hover { background: #3db892; }
+    .btn-restart { background: #e94560; color: white; }
+    .btn-restart:hover { background: #c73a52; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; padding: 0 24px 24px; }
+    .card { background: #1a1a2e; border-radius: 10px; padding: 20px; border: 1px solid #333; }
+    .card h3 { font-size: 0.85rem; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+    .card .value { font-size: 1.5rem; font-weight: 700; color: #fff; }
+    .card .sub { font-size: 0.8rem; color: #666; margin-top: 4px; }
+    .status-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
+    .status-dot.up { background: #4ecca3; box-shadow: 0 0 8px #4ecca3; }
+    .status-dot.down { background: #e94560; box-shadow: 0 0 8px #e94560; }
+    .status-dot.partial { background: #f0a500; box-shadow: 0 0 8px #f0a500; }
+    .container-list { list-style: none; }
+    .container-list li { display: flex; align-items: center; padding: 8px 0; border-bottom: 1px solid #2a2a3e; font-size: 0.85rem; }
+    .container-list li:last-child { border-bottom: none; }
+    .container-name { flex: 1; font-weight: 500; }
+    .container-stat { color: #666; margin-left: 12px; font-size: 0.75rem; }
+    .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 100; align-items: center; justify-content: center; }
+    .modal.active { display: flex; }
+    .modal-content { background: #1a1a2e; border-radius: 12px; padding: 24px; max-width: 500px; width: 90%; border: 1px solid #333; }
+    .modal-content h2 { margin-bottom: 16px; color: #fff; font-size: 1.1rem; }
+    .modal-content input { width: 100%; padding: 10px; background: #0f0f0f; border: 1px solid #333; border-radius: 6px; color: #fff; margin-bottom: 16px; font-size: 0.9rem; }
+    .modal-content input:focus { outline: none; border-color: #4ecca3; }
+    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+    .modal-actions .btn { padding: 8px 16px; }
+    .btn-cancel { background: #333; color: #fff; }
+    #log { background: #0a0a15; padding: 12px; border-radius: 6px; font-family: monospace; font-size: 0.75rem; max-height: 200px; overflow-y: auto; margin-top: 12px; display: none; white-space: pre-wrap; color: #4ecca3; }
+    .loading { animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    .last-updated { font-size: 0.7rem; color: #555; padding: 0 24px 16px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>YT-Clone Dashboard</h1>
+    <span class="badge" id="overallStatus">CHECKING</span>
+  </div>
+
+  <div class="actions">
+    <button class="btn btn-deploy" onclick="openDeployModal('deploy')">Deploy from dev</button>
+    <button class="btn btn-restart" onclick="openDeployModal('restart')">Restart All Services</button>
+  </div>
+
+  <div class="grid" id="mainGrid">
+    <div class="card"><h3>Loading...</h3></div>
+  </div>
+
+  <div class="last-updated">Last updated: <span id="lastUpdate">--</span> | Refreshes every 5s</div>
+
+  <div class="modal" id="tokenModal">
+    <div class="modal-content">
+      <h2 id="modalTitle">Enter Deploy Token</h2>
+      <input type="password" id="tokenInput" placeholder="Enter deploy token...">
+      <div class="modal-actions">
+        <button class="btn btn-cancel" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-deploy" id="modalAction" onclick="executeAction()">Confirm</button>
+      </div>
+      <div id="log"></div>
+    </div>
+  </div>
+
+  <script>
+    let currentAction = null
+
+    async function fetchMetrics() {
+      try {
+        const res = await fetch('/api/metrics')
+        if (!res.ok) throw new Error('Failed to fetch metrics')
+        const data = await res.json()
+        renderDashboard(data)
+      } catch (e) {
+        document.getElementById('overallStatus').textContent = 'ERROR'
+        document.getElementById('mainGrid').innerHTML = '<div class="card"><h3>Failed to load metrics</h3><div class="value" style="color:#e94560">' + e.message + '</div></div>'
+      }
+    }
+
+    function renderDashboard(data) {
+      const containers = data.containers || []
+      const containerStats = data.containerStats || []
+      const healthy = containers.filter(c => c.state === 'running').length
+      const total = containers.length
+      const allUp = healthy === total && total > 0
+
+      document.getElementById('overallStatus').textContent = allUp ? 'ALL SYSTEMS UP' : (healthy > 0 ? 'DEGRADED' : 'DOWN')
+      document.getElementById('overallStatus').style.background = allUp ? '#4ecca3' : (healthy > 0 ? '#f0a500' : '#e94560')
+      document.getElementById('lastUpdate').textContent = new Date(data.timestamp).toLocaleTimeString()
+
+      let html = ''
+
+      html += `<div class="card">
+        <h3>Containers</h3>
+        <div class="value">${healthy}/${total} Running</div>
+        <div class="sub">${allUp ? 'All healthy' : 'Some containers not running'}</div>
+      </div>`
+
+      html += `<div class="card">
+        <h3>System Load</h3>
+        ${data.load ? `<div class="value">${data.load['1min']}</div>
+        <div class="sub">5m: ${data.load['5min']} | 15m: ${data.load['15min']}</div>` : '<div class="value">N/A</div>'}
+      </div>`
+
+      html += `<div class="card">
+        <h3>Disk Usage</h3>
+        ${data.disk ? `<div class="value">${data.disk.percent}</div>
+        <div class="sub">${data.disk.used} / ${data.disk.total}</div>` : '<div class="value">N/A</div>'}
+      </div>`
+
+      html += `<div class="card">
+        <h3>Uptime</h3>
+        <div class="value">${data.uptime || 'N/A'}</div>
+      </div>`
+
+      html += `<div class="card">
+        <h3>Tailscale</h3>
+        <div class="value"><span class="status-dot ${data.tailscaleStatus && !data.tailscaleStatus.includes('unavailable') ? 'up' : 'down'}"></span>${data.tailscaleStatus && !data.tailscaleStatus.includes('unavailable') ? 'Connected' : 'Not Connected'}</div>
+      </div>`
+
+      html += `<div class="card">
+        <h3>Funnel</h3>
+        <div class="value"><span class="status-dot ${data.funnelStatus && data.funnelStatus.includes('Funnel on') ? 'up' : 'down'}"></span>${data.funnelStatus && data.funnelStatus.includes('Funnel on') ? 'Active' : 'Inactive'}</div>
+      </div>`
+
+      if (data.network) {
+        html += `<div class="card">
+          <h3>Network</h3>
+          <div class="value">${data.network.rxBytes}</div>
+          <div class="sub">TX: ${data.network.txBytes}</div>
+        </div>`
+      }
+
+      html += `<div class="card" style="grid-column: span 2;">
+        <h3>Container Details</h3>
+        <ul class="container-list">
+          ${containers.map(c => {
+            const stat = containerStats.find(s => s.name === c.name)
+            const stateClass = c.state === 'running' ? 'up' : 'down'
+            return `<li>
+              <span class="status-dot ${stateClass}"></span>
+              <span class="container-name">${c.name}</span>
+              <span class="container-stat">${c.state}${stat ? ' | CPU: ' + stat.cpu + '% | MEM: ' + stat.memory : ''}</span>
+            </li>`
+          }).join('')}
+        </ul>
+      </div>`
+
+      document.getElementById('mainGrid').innerHTML = html
+    }
+
+    function openDeployModal(action) {
+      currentAction = action
+      document.getElementById('modalTitle').textContent = action === 'deploy' ? 'Deploy from dev branch' : 'Restart All Services'
+      document.getElementById('modalAction').textContent = action === 'deploy' ? 'Deploy' : 'Restart'
+      document.getElementById('tokenInput').value = ''
+      document.getElementById('log').style.display = 'none'
+      document.getElementById('log').textContent = ''
+      document.getElementById('tokenModal').classList.add('active')
+    }
+
+    function closeModal() {
+      document.getElementById('tokenModal').classList.remove('active')
+    }
+
+    async function executeAction() {
+      const token = document.getElementById('tokenInput').value
+      const log = document.getElementById('log')
+      log.style.display = 'block'
+      log.textContent = 'Initiating...\n'
+
+      const endpoint = currentAction === 'deploy' ? '/api/deploy' : '/api/restart'
+
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token })
+        })
+        const data = await res.json()
+
+        if (res.status === 403) {
+          log.textContent += 'ERROR: Invalid token\n'
+          return
+        }
+
+        log.textContent += data.message + '\n'
+        log.textContent += 'Deploy/restart started. Check back in a few moments.\n'
+
+        setTimeout(() => {
+          closeModal()
+          fetchMetrics()
+        }, 3000)
+      } catch (e) {
+        log.textContent += 'ERROR: ' + e.message + '\n'
+      }
+    }
+
+    document.getElementById('tokenInput').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') executeAction()
+    })
+
+    fetchMetrics()
+    setInterval(fetchMetrics, 5000)
+  </script>
+</body>
+</html>
