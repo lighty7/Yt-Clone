@@ -53,8 +53,8 @@
   </div>
 
   <div class="actions">
-    <button class="btn btn-deploy" onclick="openDeployModal('deploy')">Deploy from dev</button>
-    <button class="btn btn-restart" onclick="openDeployModal('restart')">Restart All Services</button>
+    <button class="btn btn-deploy" id="deployBtn" onclick="doAction('deploy')">Deploy from dev</button>
+    <button class="btn btn-restart" id="restartBtn" onclick="doAction('restart')">Restart All Services</button>
   </div>
 
   <div class="grid" id="mainGrid">
@@ -63,21 +63,9 @@
 
   <div class="last-updated">Last updated: <span id="lastUpdate">--</span> | Refreshes every 5s</div>
 
-  <div class="modal" id="tokenModal">
-    <div class="modal-content">
-      <h2 id="modalTitle">Enter Deploy Token</h2>
-      <input type="password" id="tokenInput" placeholder="Enter deploy token...">
-      <div class="modal-actions">
-        <button class="btn btn-cancel" onclick="closeModal()">Cancel</button>
-        <button class="btn btn-deploy" id="modalAction" onclick="executeAction()">Confirm</button>
-      </div>
-      <div id="log"></div>
-    </div>
-  </div>
+  <div id="log" style="display:none; margin: 0 24px 16px; background: #0a0a15; padding: 12px; border-radius: 6px; font-family: monospace; font-size: 0.75rem; max-height: 150px; overflow-y: auto; white-space: pre-wrap; color: #4ecca3;"></div>
 
   <script>
-    let currentAction = null
-
     async function fetchMetrics() {
       try {
         const res = await fetch('/api/metrics')
@@ -162,56 +150,35 @@
       document.getElementById('mainGrid').innerHTML = html
     }
 
-    function openDeployModal(action) {
-      currentAction = action
-      document.getElementById('modalTitle').textContent = action === 'deploy' ? 'Deploy from dev branch' : 'Restart All Services'
-      document.getElementById('modalAction').textContent = action === 'deploy' ? 'Deploy' : 'Restart'
-      document.getElementById('tokenInput').value = ''
-      document.getElementById('log').style.display = 'none'
-      document.getElementById('log').textContent = ''
-      document.getElementById('tokenModal').classList.add('active')
-    }
-
-    function closeModal() {
-      document.getElementById('tokenModal').classList.remove('active')
-    }
-
-    async function executeAction() {
-      const token = document.getElementById('tokenInput').value
+    async function doAction(action) {
+      const btn = action === 'deploy' ? document.getElementById('deployBtn') : document.getElementById('restartBtn')
       const log = document.getElementById('log')
-      log.style.display = 'block'
-      log.textContent = 'Initiating...\n'
+      const label = btn.textContent
 
-      const endpoint = currentAction === 'deploy' ? '/api/deploy' : '/api/restart'
+      btn.disabled = true
+      btn.textContent = label === 'Deploy from dev' ? 'Deploying...' : 'Restarting...'
+      log.style.display = 'block'
+      log.textContent = action === 'deploy' ? 'Pulling from dev branch and rebuilding...\n' : 'Restarting all services...\n'
+
+      const endpoint = action === 'deploy' ? '/api/deploy' : '/api/restart'
 
       try {
-        const res = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token })
-        })
+        const res = await fetch(endpoint, { method: 'POST' })
         const data = await res.json()
-
-        if (res.status === 403) {
-          log.textContent += 'ERROR: Invalid token\n'
-          return
-        }
-
         log.textContent += data.message + '\n'
-        log.textContent += 'Deploy/restart started. Check back in a few moments.\n'
+        log.textContent += 'Check back in ~30s for updated status.\n'
 
         setTimeout(() => {
-          closeModal()
+          btn.disabled = false
+          btn.textContent = label
           fetchMetrics()
-        }, 3000)
+        }, 5000)
       } catch (e) {
         log.textContent += 'ERROR: ' + e.message + '\n'
+        btn.disabled = false
+        btn.textContent = label
       }
     }
-
-    document.getElementById('tokenInput').addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') executeAction()
-    })
 
     fetchMetrics()
     setInterval(fetchMetrics, 5000)

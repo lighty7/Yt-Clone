@@ -145,11 +145,6 @@ app.get('/api/metrics', async (req, res) => {
 })
 
 app.post('/api/deploy', async (req, res) => {
-  const { token } = req.body
-  if (token !== DEPLOY_TOKEN) {
-    return res.status(403).json({ error: 'Invalid deploy token' })
-  }
-
   res.json({ started: true, message: 'Deploy started from dev branch' })
 
   try {
@@ -163,11 +158,6 @@ app.post('/api/deploy', async (req, res) => {
 })
 
 app.post('/api/restart', async (req, res) => {
-  const { token } = req.body
-  if (token !== DEPLOY_TOKEN) {
-    return res.status(403).json({ error: 'Invalid deploy token' })
-  }
-
   res.json({ started: true, message: 'Restart initiated' })
 
   try {
