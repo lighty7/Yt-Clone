@@ -21,7 +21,7 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage: storage,
   limits: {
-    fileSize: 100 * 1024 * 1024 // 100MB limit
+    fileSize: 500 * 1024 * 1024 // Increased to 500MB
   },
   fileFilter: (req, file, cb) => {
     if (file.fieldname === 'video') {
@@ -42,11 +42,14 @@ const upload = multer({
   }
 });
 
-// GET /api/posts - Get all videos
+// GET /api/posts - Get all videos (ranked)
 router.get('/', asyncHandler(PostController.getAllPosts));
 
 // GET /api/posts/:id - Get video by ID
 router.get('/:id', asyncHandler(PostController.getPostById));
+
+// GET /api/posts/stream/:id - Stream video with Range support
+router.get('/stream/:id', PostController.streamVideo);
 
 // POST /api/posts - Upload new video
 router.post('/',
