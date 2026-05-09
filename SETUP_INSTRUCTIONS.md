@@ -1,4 +1,4 @@
-# YouTube Clone - Authentication Setup Instructions
+# YouTube Clone - Full Setup Instructions
 
 ## Backend Setup
 
@@ -9,49 +9,26 @@
    ```
 
 2. **Environment Variables**
-   Create a `.env` file in the `backend` directory with the following variables:
+   Create a `.env` file in the `backend` directory:
    ```env
-   # Database Configuration
-   DB_HOST=localhost
-   DB_PORT=5432
-   DB_NAME=yt_clone
-   DB_USER=postgres
-   DB_PASSWORD=your_password
-   DB_SSL=false
+   DATABASE_URL="postgresql://user:pass@localhost:5432/yt_clone"
+   JWT_SECRET="your_secret"
+   FRONTEND_URL="http://localhost:5173"
 
-   # JWT Configuration
-   JWT_SECRET=your_super_secret_jwt_key_here_make_it_long_and_random
-   JWT_EXPIRES_IN=7d
-
-   # Server Configuration
-   PORT=3000
-   NODE_ENV=development
-
-   # Email Configuration (SMTP)
-   SMTP_HOST=smtp.gmail.com
+   # SMTP for email verification
+   SMTP_HOST="smtp.gmail.com"
    SMTP_PORT=587
-   SMTP_SECURE=false
-   SMTP_USER=your_email@gmail.com
-   SMTP_PASS=your_app_password
-
-   # Frontend URL
-   FRONTEND_URL=http://localhost:5173
-
-   # Email Verification
-   VERIFICATION_TOKEN_EXPIRES_IN=24h
+   SMTP_USER="user@gmail.com"
+   SMTP_PASS="pass"
    ```
 
-3. **Database Setup**
-   - Make sure PostgreSQL is running
-   - Create a database named `yt_clone`
-   - The application will automatically create tables on startup
+3. **Database Initialization**
+   ```bash
+   npx prisma generate
+   npx prisma migrate dev
+   ```
 
-4. **Email Configuration**
-   - For Gmail: Use App Password (not your regular password)
-   - Enable 2-factor authentication and generate an App Password
-   - Update `SMTP_USER` and `SMTP_PASS` in your `.env` file
-
-5. **Start Backend**
+4. **Start Backend**
    ```bash
    npm run dev
    ```
@@ -75,47 +52,37 @@
    npm run dev
    ```
 
-## Features Implemented
+## New Features & Architecture
 
-### Backend
-- ✅ User registration with email verification
-- ✅ Password hashing with bcrypt
-- ✅ JWT authentication
-- ✅ Email verification system with Nodemailer
-- ✅ Login logs tracking
-- ✅ Protected routes middleware
-- ✅ Resend verification email functionality
+### Streaming & Bandwidth
+Videos are served via `/api/posts/stream/:id`. This endpoint supports HTTP Range requests, allowing:
+- Fast seeking (skipping forward/backward).
+- Lower bandwidth usage (only loading what is needed).
+- Browser-native video buffering.
 
-### Frontend
-- ✅ Signup form with validation
-- ✅ Login form with error handling
-- ✅ Email verification page
-- ✅ Protected routes
-- ✅ Feed page for authenticated users
-- ✅ Modern UI with Tailwind CSS
+### Engagement & Feed
+- **Scoring**: Videos are ranked based on a weighted algorithm:
+  `Score = (Likes * 1.5) - (Dislikes * 1) + (Comments * 2) + (Views * 0.1)`
+- **Interactions**: Like, Dislike, Comment, and Subscribe are fully functional.
 
-## Authentication Flow
+### Infrastructure
+The included `nginx/nginx.conf` is pre-configured for:
+- Large file uploads (500MB).
+- Gzip compression for API responses.
+- Optimized worker connections for handling concurrent video requests.
 
-1. **Signup**: User creates account → Verification email sent
-2. **Email Verification**: User clicks link → Account verified
-3. **Login**: User logs in with verified account → JWT token issued
-4. **Access**: User can access protected routes with valid JWT
+## API Reference
 
-## API Endpoints
+### Authentication
+- `POST /api/auth/signup` - Register
+- `POST /api/auth/login` - Login
 
-- `POST /api/auth/signup` - Register new user
-- `POST /api/auth/login` - Login user
-- `GET /api/auth/verify-email?token=xxx` - Verify email
-- `POST /api/auth/resend-verification` - Resend verification email
-- `GET /api/auth/me` - Get current user (protected)
+### Videos
+- `GET /api/posts` - Get ranked feed
+- `GET /api/posts/stream/:id` - Stream video file
+- `POST /api/posts` - Upload video/thumbnail
 
-## Testing the Flow
-
-1. Start both backend and frontend servers
-2. Go to `http://localhost:5173/signup`
-3. Create a new account
-4. Check your email for verification link
-5. Click the verification link
-6. Go to `http://localhost:5173/login`
-7. Login with your verified account
-8. You should be redirected to the Feed page
+### Interactions
+- `POST /api/likes/toggle` - Like/Dislike
+- `POST /api/subscriptions/toggle` - Subscribe/Unsubscribe
+- `POST /api/comments` - Add comment

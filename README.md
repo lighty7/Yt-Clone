@@ -1,317 +1,123 @@
 # 🎬 YouTube Clone
 
-A modern, full-stack YouTube clone built with React, Node.js, Express, and PostgreSQL. Features user authentication, video uploads, and a responsive YouTube-like interface.
+A modern, full-stack YouTube clone built with React, Node.js, Express, and PostgreSQL. Features user authentication, video uploads, interactions (likes/comments), subscriptions, and a responsive YouTube-inspired interface.
 
 ## 🌟 Features
 
-- **User Authentication**: Secure signup/login with JWT tokens
-- **Video Management**: Upload, view, and manage videos
-- **Responsive Design**: Mobile-first design with Tailwind CSS
-- **Real-time Updates**: Dynamic content loading
-- **Email Verification**: Account verification via email
-- **Modern UI**: YouTube-inspired interface with dark theme
-- **Production Ready**: Deployed on Vercel (frontend) and Render (backend)
+- **User Authentication**: Secure signup/login with JWT tokens and email verification.
+- **Video Management**: High-performance video uploads and optimized streaming.
+- **Engagement System**: Like/Dislike videos, post and delete comments, and reply to existing comments.
+- **Subscription System**: Subscribe to creators and track subscriber counts in real-time.
+- **Personalized Library**: Access your watch history, liked videos, and watch later list.
+- **Ranked Feed**: Smart home feed ranking based on engagement (likes, views, and comments).
+- **Responsive Design**: Mobile-first interface with a collapsible sidebar and adaptive grids.
+- **Production Ready**: Optimized Nginx configuration, robust rate limiting, and security headers.
 
 ## 🏗️ Architecture
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   Frontend      │    │   Backend       │    │   Database      │
-│   (Vercel)      │◄──►│   (Render)      │◄──►│   (Supabase)    │
+│   (Vercel)      │◄──►│   (Render/Nginx)│◄──►│   (PostgreSQL)  │
 │                 │    │                 │    │                 │
-│ • React 19      │    │ • Node.js       │    │ • PostgreSQL    │
-│ • Vite          │    │ • Express       │    │ • Prisma ORM    │
-│ • Tailwind CSS  │    │ • JWT Auth      │    │ • Email Service │
-│ • React Router  │    │ • CORS          │    │                 │
+│ • React 19      │    │ • Node.js       │    │ • Prisma ORM    │
+│ • Vite          │    │ • Express       │    │ • JWT Auth      │
+│ • Tailwind CSS  │    │ • Range Stream  │    │ • Like/Sub Logic│
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
 ## 🛠️ Tech Stack
 
 ### Frontend
-- **React 19** - Modern React with latest features
-- **Vite** - Fast build tool and dev server
-- **Tailwind CSS** - Utility-first CSS framework
-- **React Router** - Client-side routing
-- **Context API** - State management
+- **React 19** - Modern React with latest features.
+- **Vite** - Fast build tool and dev server.
+- **Tailwind CSS** - Utility-first CSS framework for rapid UI development.
+- **React Router 7** - Client-side routing with active state highlighting.
+- **Context API** - Global state management for authentication.
 
 ### Backend
-- **Node.js** - JavaScript runtime
-- **Express.js** - Web application framework
-- **Prisma** - Database ORM and migrations
-- **JWT** - JSON Web Token authentication
-- **CORS** - Cross-origin resource sharing
-- **Helmet** - Security middleware
+- **Node.js & Express.js** - Robust server-side runtime and framework.
+- **Prisma** - Modern ORM for type-safe database access and migrations.
+- **JWT** - Secure JSON Web Token authentication.
+- **Multer** - Middleware for handling multipart/form-data (file uploads).
+- **Security**: Helmet, CORS, and tiered rate limiting.
 
-### Database & Services
-- **PostgreSQL** - Primary database (via Supabase)
-- **Supabase** - Database hosting and management
-- **Email Service** - SMTP email notifications
-
-### Deployment
-- **Vercel** - Frontend hosting
-- **Render** - Backend hosting
-
-## 🚀 Live Demo
-
-- **Frontend**: [https://yt-clone-blond.vercel.app/](https://yt-clone-blond.vercel.app/)
-- **Backend API**: [https://yt-clone-il3g.onrender.com](https://yt-clone-il3g.onrender.com)
+### Infrastructure
+- **Nginx** - Reverse proxy optimized for high-volume video serving with Gzip and efficient buffering.
+- **PostgreSQL** - Relational database for persistent storage.
 
 ## 📋 Prerequisites
 
-Before running this project, make sure you have:
-
 - **Node.js** (v18 or higher)
 - **npm** or **yarn**
-- **PostgreSQL** database (or Supabase account)
-- **SMTP email service** (Gmail, SendGrid, etc.)
+- **PostgreSQL** instance
+- **SMTP email service** (for verification)
 
 ## 🏃‍♂️ Quick Start
 
 ### 1. Clone the Repository
-
 ```bash
 git clone https://github.com/lighty7/Yt-Clone.git
 cd Yt-Clone
 ```
 
 ### 2. Backend Setup
-
 ```bash
 cd backend
-
-# Install dependencies
 npm install
-
-# Set up environment variables
-cp .env.example .env
-# Edit .env with your database and email credentials
-
-# Run database migrations
-npm run prisma:migrate
-
-# Start development server
+cp .env.example .env # Update with your DATABASE_URL and JWT_SECRET
+npx prisma generate
+npx prisma migrate dev
 npm run dev
 ```
 
 ### 3. Frontend Setup
-
 ```bash
 cd frontend
-
-# Install dependencies
 npm install
-
-# Start development server
 npm run dev
 ```
 
-### 4. Access the Application
+## ⚙️ Key Configurations
 
-- **Frontend**: http://localhost:5173
-- **Backend API**: http://localhost:3000
+### Optimized Streaming
+The backend supports **HTTP Range requests**, allowing users to skip to any part of a video instantly and enabling browser-level bandwidth management.
 
-## ⚙️ Environment Variables
+### Ranked Feed Algorithm
+Videos are ranked using an engagement score:
+`Score = (Likes * 1.5) - (Dislikes * 1) + (Comments * 2) + (Views * 0.1)`
 
-### Backend (.env)
-
-```env
-# Database
-DATABASE_URL="postgresql://username:password@host:port/database"
-SUPABASE_URL="your-supabase-url"
-SUPABASE_ANON_KEY="your-supabase-anon-key"
-
-# Authentication
-JWT_SECRET="your-super-secret-jwt-key"
-JWT_EXPIRES_IN="7d"
-
-# Email Service
-SMTP_HOST="smtp.gmail.com"
-SMTP_PORT="587"
-SMTP_SECURE="false"
-SMTP_USER="your-email@gmail.com"
-SMTP_PASS="your-app-password"
-
-# Application
-NODE_ENV="development"
-PORT="3000"
-FRONTEND_URL="http://localhost:5173"
-```
-
-### Frontend (.env.local)
-
-```env
-VITE_API_URL="http://localhost:3000"
-```
+### Security
+- **Auth Rate Limit**: 50 attempts/hour.
+- **API Rate Limit**: 1000 requests/15 minutes.
+- **Upload Limit**: 500MB per video.
 
 ## 📁 Project Structure
 
 ```
 Yt-Clone/
-├── backend/                 # Backend API
+├── backend/                 # Node.js/Express API
+│   ├── prisma/             # Schema and Migrations
 │   ├── src/
-│   │   ├── config/         # Configuration files
-│   │   ├── middleware/     # Express middleware
-│   │   ├── models/         # Database models
-│   │   ├── routes/         # API routes
-│   │   ├── services/       # Business logic
-│   │   ├── utils/          # Utility functions
-│   │   ├── app.js          # Express app setup
-│   │   └── server.js       # Server entry point
-│   ├── prisma/             # Database schema & migrations
-│   ├── tests/              # Test files
-│   └── package.json
-├── frontend/                # Frontend React app
+│   │   ├── controllers/    # Business logic (Post, User, Like, etc.)
+│   │   ├── routes/         # API endpoints
+│   │   └── libs/           # Security and config
+├── frontend/                # React 19 App
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── auth/       # Authentication components
-│   │   │   ├── common/     # Reusable components
-│   │   │   ├── dashboard/  # Dashboard components
-│   │   │   ├── layout/     # Layout components
-│   │   │   └── video/      # Video-related components
-│   │   ├── config/         # Configuration
-│   │   ├── contexts/       # React contexts
-│   │   ├── hooks/          # Custom hooks
-│   │   ├── App.jsx         # Main app component
-│   │   └── main.jsx        # App entry point
-│   ├── public/             # Static assets
-│   └── package.json
-└── README.md
-```
-
-## 🔧 Available Scripts
-
-### Backend Scripts
-
-```bash
-npm run dev          # Start development server
-npm start           # Start production server
-npm run build       # Build for production
-npm run prisma:studio  # Open Prisma Studio
-npm run prisma:migrate  # Run database migrations
-npm run prisma:generate  # Generate Prisma client
-```
-
-### Frontend Scripts
-
-```bash
-npm run dev         # Start development server
-npm run build       # Build for production
-npm run preview     # Preview production build
-npm run lint        # Run ESLint
+│   │   │   ├── layout/     # Header, Sidebar
+│   │   │   └── video/      # Player, Feeds, Cards
+│   │   └── contexts/       # Auth state
+├── nginx/                   # Nginx configuration
+└── docker-compose.yml       # Container orchestration
 ```
 
 ## 🚀 Deployment
 
-### Frontend (Vercel)
-
-1. Push your code to GitHub
-2. Connect your repository to Vercel
-3. Set environment variables in Vercel dashboard:
-   - `VITE_API_URL` = your backend URL
-4. Deploy automatically on push to main branch
-
-### Backend (Render)
-
-1. Connect your GitHub repository to Render
-2. Create a new Web Service
-3. Set environment variables in Render dashboard
-4. Deploy automatically on push to main branch
-
-### Database (Supabase)
-
-1. Create a new Supabase project
-2. Copy the database URL and anon key
-3. Add them to your backend environment variables
-4. Run migrations: `npm run prisma:migrate`
-
-## 📚 API Documentation
-
-### Authentication Endpoints
-
-- `POST /api/auth/signup` - User registration
-- `POST /api/auth/login` - User login
-- `GET /api/auth/me` - Get current user
-- `POST /api/auth/verify-email` - Verify email address
-
-### Video Endpoints
-
-- `GET /api/posts` - Get all videos
-- `POST /api/posts` - Upload new video
-- `GET /api/posts/:id` - Get video by ID
-- `PUT /api/posts/:id` - Update video
-- `DELETE /api/posts/:id` - Delete video
-
-### Health Check
-
-- `GET /health` - API health status
-
-## 🧪 Testing
-
-### Backend Tests
-```bash
-cd backend
-npm test
-```
-
-The backend includes comprehensive tests for:
-- API health checks
-- CORS configuration
-- Error handling
-- Basic endpoint functionality
-
-### Frontend Tests
-```bash
-cd frontend
-npm test
-```
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Commit your changes: `git commit -m 'Add amazing feature'`
-4. Push to the branch: `git push origin feature/amazing-feature`
-5. Open a Pull Request
-
-### Development Guidelines
-
-- Follow the existing code style
-- Write meaningful commit messages
-- Add tests for new features
-- Update documentation as needed
-- Ensure all builds pass before submitting PR
-
-## 📝 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🆘 Support
-
-If you encounter any issues or have questions:
-
-1. Check the [Issues](https://github.com/lighty7/Yt-Clone/issues) page
-2. Create a new issue with detailed information
-3. Provide steps to reproduce any bugs
-
-## 🎯 Roadmap
-
-- [ ] Video comments system
-- [ ] User subscriptions
-- [ ] Video recommendations
-- [ ] Live streaming
-- [ ] Mobile app (React Native)
-- [ ] Advanced search and filters
-- [ ] Video analytics dashboard
-
-## 🙏 Acknowledgments
-
-- YouTube for the design inspiration
-- React team for the amazing framework
-- Vercel and Render for hosting services
-- Supabase for database hosting
-- All contributors and supporters
+- **Frontend**: Deploy `frontend/` to Vercel/Netlify. Ensure `VITE_API_URL` points to your backend.
+- **Backend**: Deploy `backend/` to Render/Railway. Ensure `DATABASE_URL` and `JWT_SECRET` are set.
+- **Static Assets**: Use the optimized Nginx config in `nginx/` for serving uploads in a self-hosted environment.
 
 ---
 
-**Made with ❤️ by [lighty7](https://github.com/lighty7)**
+**Built with ❤️ for the community.**
