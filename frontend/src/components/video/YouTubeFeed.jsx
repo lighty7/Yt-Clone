@@ -8,6 +8,9 @@ const YouTubeFeed = () => {
   const [videos, setVideos] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [activeCategory, setActiveCategory] = useState('All')
+
+  const categories = ['All', 'Gaming', 'Music', 'Live', 'Comedy', 'Technology', 'Sports', 'Cooking', 'Education']
 
   useEffect(() => {
     loadVideos()
@@ -21,25 +24,7 @@ const YouTubeFeed = () => {
       const data = await res.json()
       
       if (res.ok) {
-        // Transform posts to video format for YouTube-like display
-        const videoData = data.posts.map(post => ({
-          id: post.id,
-          content: post.content,
-          video_url: post.video_url,
-          thumbnail_url: post.thumbnail_url,
-          duration: post.duration || '10:30',
-          views: post.views || Math.floor(Math.random() * 1000000),
-          likes: post.likes || Math.floor(Math.random() * 10000),
-          dislikes: post.dislikes || Math.floor(Math.random() * 100),
-          comments_count: post.comments_count || Math.floor(Math.random() * 100),
-          created_at: post.created_at,
-          user: {
-            id: post.user_id,
-            name: `User ${post.user_id}`,
-            avatar: null
-          }
-        }))
-        setVideos(videoData)
+        setVideos(data.posts || [])
       } else {
         setError(data.message || 'Failed to load videos')
       }
@@ -52,48 +37,50 @@ const YouTubeFeed = () => {
     }
   }
 
-  const handleLike = async (videoId) => {
-    try {
-      await fetch(`${API_URL}/api/posts/${videoId}/like`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      })
-    } catch (error) {
-      console.error('Error liking video:', error)
-    }
-  }
-
-  const handleDislike = async (videoId) => {
-    // Implement dislike functionality
-    console.log('Disliking video:', videoId)
-  }
-
-  const handleComment = (videoId) => {
-    // Navigate to video page with comments
-    console.log('Opening comments for video:', videoId)
-  }
-
+  // Loading Skeletons
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
+      <div className="bg-gray-900 min-h-screen pt-4 px-4">
+        {/* Category Skeletons */}
+        <div className="flex space-x-3 mb-6 overflow-hidden">
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+            <div key={i} className="h-8 w-20 bg-gray-800 rounded-lg animate-pulse flex-shrink-0" />
+          ))}
+        </div>
+
+        {/* Video Skeletons */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-x-4 gap-y-8">
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
+            <div key={i} className="animate-pulse">
+              <div className="aspect-video bg-gray-800 rounded-xl mb-3" />
+              <div className="flex space-x-3">
+                <div className="w-9 h-9 bg-gray-800 rounded-full" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 bg-gray-800 rounded w-3/4" />
+                  <div className="h-3 bg-gray-800 rounded w-1/2" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="text-red-600 text-xl mb-4">⚠️</div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Error Loading Videos</h2>
-          <p className="text-gray-600 mb-4">{error}</p>
+      <div className="flex items-center justify-center min-h-[70vh]">
+        <div className="text-center p-8 bg-gray-800 border border-gray-700 rounded-2xl shadow-xl max-w-sm">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-red-500/10 rounded-full mb-4">
+            <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-bold text-white mb-2">Can't load feed</h2>
+          <p className="text-gray-400 text-sm mb-6">{error}</p>
           <button
             onClick={loadVideos}
-            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+            className="w-full px-6 py-2.5 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition-colors"
           >
             Try Again
           </button>
@@ -104,45 +91,49 @@ const YouTubeFeed = () => {
 
   return (
     <div className="bg-gray-900 min-h-screen">
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-white">Recommended</h1>
-          <p className="text-gray-400">Videos you might like</p>
+      {/* Category Filter Bar */}
+      <div className="sticky top-[64px] z-40 bg-gray-900/95 backdrop-blur-md px-4 py-3 border-b border-gray-800">
+        <div className="flex space-x-3 overflow-x-auto no-scrollbar">
+          {categories.map((cat) => (
+            <button
+              key={cat}
+              onClick={() => setActiveCategory(cat)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
+                activeCategory === cat
+                  ? 'bg-white text-black'
+                  : 'bg-gray-800 text-white hover:bg-gray-700 border border-gray-700'
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
         </div>
+      </div>
 
-        {/* Video Grid */}
+      <div className="px-4 py-6">
         {videos.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="text-gray-500 text-6xl mb-4">📹</div>
-            <h2 className="text-xl font-semibold text-white mb-2">No Videos Yet</h2>
-            <p className="text-gray-400 mb-6">Be the first to upload a video!</p>
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <div className="w-24 h-24 bg-gray-800 rounded-full flex items-center justify-center mb-6">
+              <svg className="w-12 h-12 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-bold text-white mb-2">No videos yet</h2>
+            <p className="text-gray-400 max-w-sm mb-8">Be the first one to share a video with the community!</p>
             {user && (
-              <button className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700">
-                Upload Video
+              <button
+                onClick={() => window.location.href = '/upload'}
+                className="px-8 py-3 bg-red-600 text-white font-bold rounded-full hover:bg-red-700 shadow-lg shadow-red-900/20 transition-all"
+              >
+                Upload a Video
               </button>
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-x-4 gap-y-10">
             {videos.map((video) => (
-              <VideoCard
-                key={video.id}
-                video={video}
-                onLike={handleLike}
-                onDislike={handleDislike}
-                onComment={handleComment}
-              />
+              <VideoCard key={video.id} video={video} />
             ))}
-          </div>
-        )}
-
-        {/* Load More Button */}
-        {videos.length > 0 && (
-          <div className="text-center mt-8">
-            <button className="px-6 py-3 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600">
-              Load More Videos
-            </button>
           </div>
         )}
       </div>
