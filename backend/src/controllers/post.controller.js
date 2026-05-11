@@ -1,8 +1,12 @@
 const { prisma } = require('../config/prisma');
+const jwt = require('jsonwebtoken');
+const env = require('../config/env');
+const fs = require('fs');
+const path = require('path');
 
 class PostController {
   /**
-   * Get all posts with user information
+   * Get all posts with user information and ranked by engagement
    */
   static async getAllPosts(req, res) {
     try {
@@ -12,29 +16,34 @@ class PostController {
             select: {
               id: true,
               name: true,
-              email: true
+              email: true,
+              avatar: true
             }
+          },
+          _count: {
+            select: { comments: true }
           }
-        },
-        orderBy: {
-          createdAt: 'desc'
         }
       });
 
-      // Convert BigInt to string for JSON serialization
-      const serializedPosts = posts.map(post => {
+      // Implement ranking algorithm: score = (likes * 1.5) - (dislikes * 1) + (comments * 2) + (views * 0.1)
+      const rankedPosts = posts.map(post => {
+        const commentCount = post._count?.comments || 0;
+        const score = (post.likes * 1.5) - (post.dislikes * 1) + (commentCount * 2) + (post.views * 0.1);
+
         const serializedPost = { ...post };
         serializedPost.id = post.id.toString();
         serializedPost.userId = post.userId.toString();
         if (serializedPost.user) {
           serializedPost.user.id = post.user.id.toString();
         }
+        serializedPost.score = score;
         return serializedPost;
-      });
+      }).sort((a, b) => b.score - a.score);
 
       res.json({
         success: true,
-        posts: serializedPosts
+        posts: rankedPosts
       });
     } catch (error) {
       console.error('Error fetching posts:', error);
@@ -46,11 +55,75 @@ class PostController {
   }
 
   /**
+   * Stream video with Range support for bandwidth management
+   */
+  static async streamVideo(req, res) {
+    try {
+      const { id } = req.params;
+      const post = await prisma.post.findUnique({
+        where: { id: BigInt(id) }
+      });
+
+      if (!post || !post.videoUrl) {
+        return res.status(404).json({ success: false, message: 'Video not found' });
+      }
+
+      const videoPath = path.join(__dirname, '../../', post.videoUrl);
+      if (!fs.existsSync(videoPath)) {
+        return res.status(404).json({ success: false, message: 'Video file not found' });
+      }
+
+      const stat = fs.statSync(videoPath);
+      const fileSize = stat.size;
+      const range = req.headers.range;
+
+      if (range) {
+        const parts = range.replace(/bytes=/, "").split("-");
+        const start = parseInt(parts[0], 10);
+        const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+        const chunksize = (end - start) + 1;
+        const file = fs.createReadStream(videoPath, { start, end });
+        const head = {
+          'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+          'Accept-Ranges': 'bytes',
+          'Content-Length': chunksize,
+          'Content-Type': 'video/mp4',
+        };
+        res.writeHead(206, head);
+        file.pipe(res);
+      } else {
+        const head = {
+          'Content-Length': fileSize,
+          'Content-Type': 'video/mp4',
+        };
+        res.writeHead(200, head);
+        fs.createReadStream(videoPath).pipe(res);
+      }
+    } catch (error) {
+      console.error('Error streaming video:', error);
+      res.status(500).json({ success: false, message: 'Streaming error' });
+    }
+  }
+
+  /**
    * Get post by ID
    */
   static async getPostById(req, res) {
     try {
       const { id } = req.params;
+      const authHeader = req.headers.authorization;
+      let currentUserId = null;
+
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        try {
+          const token = authHeader.split(' ')[1];
+          const decoded = jwt.verify(token, env.jwtSecret);
+          currentUserId = decoded.userId;
+        } catch (e) {
+          // Ignore invalid token
+        }
+      }
+
       const post = await prisma.post.findUnique({
         where: { id: BigInt(id) },
         include: {
@@ -58,20 +131,11 @@ class PostController {
             select: {
               id: true,
               name: true,
-              email: true
-            }
-          },
-          comments: {
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  name: true
-                }
+              email: true,
+              avatar: true,
+              _count: {
+                select: { subscribers: true }
               }
-            },
-            orderBy: {
-              createdAt: 'desc'
             }
           }
         }
@@ -90,23 +154,41 @@ class PostController {
         data: { views: { increment: 1 } }
       });
 
-      // Serialize BigInt
+      let userInteraction = null;
+      let isSubscribed = false;
+
+      if (currentUserId) {
+        const interaction = await prisma.like.findUnique({
+          where: {
+            postId_userId: {
+              postId: BigInt(id),
+              userId: BigInt(currentUserId)
+            }
+          }
+        });
+        userInteraction = interaction ? interaction.type : null;
+
+        const sub = await prisma.subscription.findUnique({
+          where: {
+            subscriberId_subscribedToId: {
+              subscriberId: BigInt(currentUserId),
+              subscribedToId: post.userId
+            }
+          }
+        });
+        isSubscribed = !!sub;
+      }
+
       const serializedPost = { ...post };
       serializedPost.id = post.id.toString();
       serializedPost.userId = post.userId.toString();
       if (serializedPost.user) {
         serializedPost.user.id = post.user.id.toString();
+        serializedPost.user.subscriberCount = post.user._count.subscribers;
       }
-      serializedPost.comments = post.comments.map(comment => ({
-        ...comment,
-        id: comment.id.toString(),
-        postId: comment.postId.toString(),
-        userId: comment.userId.toString(),
-        user: {
-          ...comment.user,
-          id: comment.user.id.toString()
-        }
-      }));
+
+      serializedPost.userInteraction = userInteraction;
+      serializedPost.isSubscribed = isSubscribed;
 
       res.json({
         success: true,
@@ -127,7 +209,7 @@ class PostController {
   static async createPost(req, res) {
     try {
       const { content, description, duration } = req.body;
-      const userId = req.user.id; // Assumes auth middleware sets req.user
+      const userId = req.user.id;
 
       const videoUrl = req.files?.video ? `/uploads/${req.files.video[0].filename}` : null;
       const thumbnailUrl = req.files?.thumbnail ? `/uploads/${req.files.thumbnail[0].filename}` : null;
